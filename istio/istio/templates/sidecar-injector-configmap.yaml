@@ -1,0 +1,21 @@
+{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-sidecar-injector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "istio.name" . }}
+    chart: {{ template "istio.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: sidecar-injector
+data:
+  values: |-
+    {{ .Values | toJson }}
+
+  config: |-
+    policy: {{ .Values.global.proxy.autoInject }}
+    template: |-
+{{ .Files.Get "files/injection-template.yaml" | indent 6 }}
+{{- end }}
