@@ -1,0 +1,9 @@
+
+kube-arangodb-storage has been deployed successfully!
+
+Your release is named '{{ .Release.Name }}'.
+
+You can now deploy an ArangoLocalStorage resource.
+
+See https://docs.arangodb.com/devel/Manual/Deployment/Kubernetes/StorageResource.html
+for further instructions.

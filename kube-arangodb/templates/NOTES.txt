@@ -1,0 +1,15 @@
+
+kube-arangodb has been deployed successfully!
+
+Your release is named '{{ .Release.Name }}'.
+
+{{ if and .Values.Deployment.Create .Values.DeploymentReplication.Create -}}
+You can now deploy ArangoDeployment & ArangoDeploymentReplication resources.
+{{- else if and .Values.Deployment.Create (not .Values.DeploymentReplication.Create) -}}
+You can now deploy ArangoDeployment resources.
+{{- else if and (not .Values.Deployment.Create) .Values.DeploymentReplication.Create -}}
+You can now deploy ArangoDeploymentReplication resources.
+{{- end }}
+
+See https://docs.arangodb.com/devel/Manual/Tutorials/Kubernetes/
+for how to get started.

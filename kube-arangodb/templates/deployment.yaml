@@ -1,0 +1,186 @@
+## deployment/rbac.yaml
+{{- if .Values.Deployment.Create }}
+{{- if .Values.RBAC.Create }}
+
+## Cluster role granting access to ArangoDeployment resources.
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: {{ printf "%s-%s" .Release.Name "deployments" | trunc 63 | trimSuffix "-" }}
+rules:
+- apiGroups: ["database.arangodb.com"]
+  resources: ["arangodeployments"]
+  verbs: ["*"]
+
+---
+
+## Cluster role granting access to all resources needed by the ArangoDeployment operator.
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: {{ printf "%s-%s" .Release.Name "deployment-operator" | trunc 63 | trimSuffix "-" }}
+rules:
+- apiGroups: ["database.arangodb.com"]
+  resources: ["arangodeployments"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints", "persistentvolumeclaims", "events", "secrets"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces", "nodes"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["get", "create", "delete"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["get", "list"]
+- apiGroups: ["monitoring.coreos.com"]
+  resources: ["servicemonitors"]
+  verbs: ["get", "create", "delete"]
+  
+
+---
+
+## Bind the cluster role granting access to ArangoDeployment resources
+## to the default service account of the configured namespace.
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: {{ printf "%s-%s" .Release.Name "deployments" | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ printf "%s-%s" .Release.Name "deployments" | trunc 63 | trimSuffix "-" }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.Deployment.User.ServiceAccountName }}
+  namespace: {{ .Release.Namespace }}
+
+---
+
+## Bind the cluster role granting access to all resources needed by 
+## the ArangoDeployment operator to the default service account
+## the is being used to run the operator deployment.
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "%s-%s" .Release.Name "deployment-operator" | trunc 63 | trimSuffix "-" }}-{{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ printf "%s-%s" .Release.Name "deployment-operator" | trunc 63 | trimSuffix "-" }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.Deployment.Operator.ServiceAccountName }}
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}
+{{- end }}
+
+
+---
+
+## deployment/deployment.yaml
+{{- if .Values.Deployment.Create }}
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: arango-deployment-operator
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 2
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        name: arango-deployment-operator
+        app: arango-deployment-operator
+    spec:
+      serviceAccountName: {{ .Values.Deployment.Operator.ServiceAccountName }}
+      containers:
+      - name: operator
+        imagePullPolicy: {{ .Values.ImagePullPolicy }}
+        image: {{ .Values.Image }}
+        args:
+          - --operator.deployment
+          - --chaos.allowed={{ .Values.Deployment.AllowChaos }}
+        env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        ports:
+        - name: metrics
+          containerPort: 8528
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8528
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready/deployment
+            port: 8528
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      tolerations:
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 5
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 5
+
+{{- end }}
+
+
+---
+
+## deployment/service.yaml
+{{- if .Values.Deployment.Create }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: arango-deployment-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    name: arango-deployment-operator
+    app: arango-deployment-operator
+spec:
+  ports:
+  - name: server
+    port: 8528
+    protocol: TCP
+    targetPort: 8528
+  selector:
+    name: arango-deployment-operator
+    app: arango-deployment-operator
+    role: leader
+  type: {{ .Values.Deployment.Operator.ServiceType }}
+
+{{- end }}
+

@@ -1,0 +1,7 @@
+
+apiVersion: v1
+name: kube-arangodb-crd
+version: "0.3.11"
+description: |
+  Kube-ArangoDB-crd contains the custom resource definitions for ArangoDeployment and ArangoDeploymentReplication resources.
+home: https://arangodb.com

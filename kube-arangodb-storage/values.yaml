@@ -1,0 +1,12 @@
+
+Image: "eu.gcr.io/hivecell/kube-arangodb-arm64/kube-arangodb:0.3.11"
+ImagePullPolicy: "Always"
+RBAC:
+  Create: true
+Storage:
+  Create: true
+  User:
+    ServiceAccountName: "default"
+  Operator:
+    ServiceAccountName: "arango-storage-operator"
+    ServiceType: "ClusterIP"

@@ -1,0 +1,6 @@
+
+kube-arangodb-crd has been deployed successfully!
+
+Your release is named '{{ .Release.Name }}'.
+
+You can now continue install kube-arangodb chart.

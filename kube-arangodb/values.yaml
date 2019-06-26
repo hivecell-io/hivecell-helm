@@ -1,0 +1,22 @@
+
+# Image containing the kube-arangodb operators
+Image: "eu.gcr.io/hivecell/kube-arangodb-arm64/kube-arangodb:0.3.12"
+# Image pull policy for Image
+ImagePullPolicy: "Always"
+RBAC:
+  Create: true
+Deployment:
+  Create: true
+  User:
+    ServiceAccountName: "default"
+  Operator:
+    ServiceAccountName: "default"
+    ServiceType: "ClusterIP"
+  AllowChaos: false
+DeploymentReplication:
+  Create: true
+  User:
+    ServiceAccountName: "default"
+  Operator:
+    ServiceAccountName: "default"
+    ServiceType: "ClusterIP"

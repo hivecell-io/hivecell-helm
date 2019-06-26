@@ -1,0 +1,7 @@
+
+apiVersion: v1
+name: kube-arangodb-storage
+version: "0.3.11"
+description: |
+  Kube-ArangoDB-Storage is a cluster-wide operator used to provision PersistentVolumes on disks attached locally to Nodes
+home: https://arangodb.com

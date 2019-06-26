@@ -1,0 +1,216 @@
+## storage/crd.yaml
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: arangolocalstorages.storage.arangodb.com
+spec:
+  group: storage.arangodb.com
+  names:
+    kind: ArangoLocalStorage
+    listKind: ArangoLocalStorageList
+    plural: arangolocalstorages
+    shortNames:
+    - arangostorage
+    singular: arangolocalstorage
+  scope: Cluster
+  version: v1alpha
+
+
+---
+
+## storage/rbac.yaml
+{{- if .Values.Storage.Create }}
+{{- if .Values.RBAC.Create }}
+
+## Cluster role granting access to ArangoLocalStorage resources.
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: {{ printf "%s-%s" .Release.Name "storages" | trunc 63 | trimSuffix "-" }}
+rules:
+- apiGroups: ["storage.arangodb.com"]
+  resources: ["arangolocalstorages"]
+  verbs: ["*"]
+
+---
+
+## Cluster role granting access to all resources needed by the ArangoLocalStorage operator.
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: {{ printf "%s-%s" .Release.Name "storage-operator" | trunc 63 | trimSuffix "-" }}
+rules:
+- apiGroups: ["storage.arangodb.com"]
+  resources: ["arangolocalstorages"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["persistentvolumes", "persistentvolumeclaims", "endpoints", "events", "services"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "update"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["namespaces", "nodes"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["*"]
+
+---
+
+## Bind the cluster role granting access to ArangoLocalStorage resources
+## to the default service account of the configured namespace.
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: {{ printf "%s-%s" .Release.Name "storages" | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ printf "%s-%s" .Release.Name "storages" | trunc 63 | trimSuffix "-" }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.Storage.User.ServiceAccountName }}
+  namespace: {{ .Release.Namespace }}
+
+---
+
+## Bind the cluster role granting access to all resources needed by 
+## the ArangoLocalStorage operator to the default service account
+## the is being used to run the operator deployment.
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "%s-%s" .Release.Name "storage-operator" | trunc 63 | trimSuffix "-" }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ printf "%s-%s" .Release.Name "storage-operator" | trunc 63 | trimSuffix "-" }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.Storage.Operator.ServiceAccountName }}
+  namespace: kube-system
+
+{{- end }}
+{{- end }}
+
+
+---
+
+## storage/deployment.yaml
+{{- if .Values.Storage.Create }}
+
+## Service accounts
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: kube-system
+  name: {{ .Values.Storage.Operator.ServiceAccountName }}
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: arango-storage-operator
+  namespace: kube-system
+spec:
+  replicas: 2
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        name: arango-storage-operator
+        app: arango-storage-operator
+    spec:
+      serviceAccountName: {{ .Values.Storage.Operator.ServiceAccountName }}
+      containers:
+      - name: operator
+        imagePullPolicy: {{ .Values.ImagePullPolicy }}
+        image: {{ .Values.Image }}
+        args:
+        - --operator.storage
+        env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        ports:
+        - name: metrics
+          containerPort: 8528
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8528
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready/storage
+            port: 8528
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      tolerations:
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 5
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 5
+
+{{- end }}
+
+
+---
+
+## storage/service.yaml
+{{- if .Values.Storage.Create }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: arango-storage-operator
+  namespace: kube-system
+  labels:
+    name: arango-storage-operator
+    app: arango-storage-operator
+spec:
+  ports:
+  - name: server
+    port: 8528
+    protocol: TCP
+    targetPort: 8528
+  selector:
+    name: arango-storage-operator
+    app: arango-storage-operator
+    role: leader
+  type: {{ .Values.Storage.Operator.ServiceType }}
+
+{{- end }}
+

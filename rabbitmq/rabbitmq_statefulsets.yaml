@@ -1,7 +1,7 @@
 kind: Service
 apiVersion: v1
 metadata:
-  namespace: test-rabbitmq
+  namespace: default
   name: rabbitmq
   labels:
     app: rabbitmq
@@ -26,7 +26,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: rabbitmq-config
-  namespace: test-rabbitmq
+  namespace: default
 data:
   enabled_plugins: |
       [rabbitmq_management,rabbitmq_peer_discovery_k8s].
@@ -58,7 +58,7 @@ apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
   name: rabbitmq
-  namespace: test-rabbitmq
+  namespace: default
 spec:
   serviceName: rabbitmq
   replicas: 3
