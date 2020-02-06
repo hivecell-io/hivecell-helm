@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gputest-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gputest
+  template:
+    metadata:
+      name: gputest
+      labels:
+        app: gputest
+    spec:
+      hostname: gputest
+      containers:
+      - name: gputest
+        image:
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - mountPath: /dev/nvhost-ctrl
+          name: nvhost-ctrl
+        - mountPath: /dev/nvhost-ctrl-gpu
+          name: nvhost-ctrl-gpu
+        - mountPath: /dev/nvhost-prof-gpu
+          name: nvhost-prof-gpu
+        - mountPath: /dev/nvmap
+          name: nvmap
+        - mountPath: /dev/nvhost-gpu
+          name: nvhost-gpu
+        - mountPath: /dev/nvhost-as-gpu
+          name: nvhost-as-gpu
+        - mountPath: /usr/lib/aarch64-linux-gnu/tegra
+          name: lib
+        securityContext:
+          privileged: true
+      volumes:
+      - name: nvhost-ctrl
+        hostPath:
+          path: /dev/nvhost-ctrl
+      - name: nvhost-ctrl-gpu
+        hostPath:
+          path: /dev/nvhost-ctrl-gpu
+      - name: nvhost-prof-gpu
+        hostPath:
+          path: /dev/nvhost-prof-gpu
+      - name: nvmap
+        hostPath:
+          path: /dev/nvmap
+      - name: nvhost-gpu
+        hostPath:
+          path: /dev/nvhost-gpu
+      - name: nvhost-as-gpu
+        hostPath:
+          path: /dev/nvhost-as-gpu
+      - name: lib
+        hostPath:
+          path: /usr/lib/aarch64-linux-gnu/tegra
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: gputest
+spec:
+  type: NodePort
+  selector:
+    app: gputest
+  ports:
+  - port: 8501
+    name: http

@@ -60,7 +60,7 @@ hazelcast:
   groupPassword: orientdb
 
 persistence:
-  enabled: true
+  enabled: false
   storage:
     accessMode:
     - ReadWriteOnce

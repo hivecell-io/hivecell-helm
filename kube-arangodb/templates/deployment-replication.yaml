@@ -84,7 +84,7 @@ subjects:
 ## deployment-replication/deployment-replication.yaml
 {{- if .Values.DeploymentReplication.Create }}
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: arango-deployment-replication-operator
