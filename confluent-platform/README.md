@@ -7,8 +7,7 @@ The [Confluent Platform Helm charts](https://github.com/confluentinc/cp-helm-cha
 ## Installing Charts
 
 ```
-helm repo add confluentinc https://confluentinc.github.io/cp-helm-charts/
-helm repo update
+helm upgrade --install cp-kafka . 
 ```
 
 ## Documentation
