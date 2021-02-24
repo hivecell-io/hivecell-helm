@@ -17,6 +17,11 @@ spec:
     - name: config
       mountPath: /readonly-config
       readOnly: true
+    readinessProbe:
+          exec:
+            command: ["sh", "ls"]
+          initialDelaySeconds: 15
+          periodSeconds: 5
   - name: check-probes
     image: koalaman/shellcheck:v0.5.0
     args:
@@ -26,6 +31,11 @@ spec:
     - name: probes
       mountPath: /probes
       readOnly: true
+    readinessProbe:
+          exec:
+            command: ["sh", "ls"]
+          initialDelaySeconds: 15
+          periodSeconds: 5
   volumes:
   - name: config
     configMap:

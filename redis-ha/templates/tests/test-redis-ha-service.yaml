@@ -14,4 +14,9 @@ spec:
       - sh
       - -c
       - redis-cli -h {{ template "redis-ha.fullname" . }} -p {{ .Values.redis.port }} info server
+    readinessProbe:
+          exec:
+            command: ["sh", "ls"]
+          initialDelaySeconds: 15
+          periodSeconds: 5
   restartPolicy: Never
