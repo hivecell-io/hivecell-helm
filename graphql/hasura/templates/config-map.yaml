@@ -1,0 +1,12 @@
+{{- $jwtSecret := include "hasura.jwtSecret" . -}}
+{{- $fullname := include "hasura.fullname" . -}}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hasura.fullname" . }}
+  namespace: default
+data:
+  jwt.algorithm: "{{ (fromJson $jwtSecret).type }}"
+  jwt.claims.namespace: "{{ (fromJson $jwtSecret).claims_namespace }}"
+  endpoint: "http://{{ $fullname }}/v1/graphql"

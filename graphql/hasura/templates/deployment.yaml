@@ -1,0 +1,164 @@
+{{- $fullname := include "hasura.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hasura.fullname" . }}
+  labels:
+    {{- include "hasura.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "hasura.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
+        checksum/hasura-secrets: {{ include (print $.Template.BasePath "/hasura-secrets.yaml") . | sha256sum }}
+        checksum/postgresql-secrets: {{ include (print $.Template.BasePath "/postgresql-secrets.yaml") . | sha256sum }}
+    {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "hasura.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "hasura.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{/*
+      # initContainers:
+      #   - name: wait-postgres
+      #     image: busybox:1.28
+      #     command: ['sh', '-c', "until nc -z {{ .Release.Name }}-postgresql {{ .Values.postgresql.servicePort |int }}; do echo en attente de postgresql; sleep 2; done"]
+      */}}
+      volumes:
+        - name: hasura-migrations
+          configMap:
+            name: "{{ $fullname }}-migrations"
+        - name: hasura-metadata
+          configMap:
+            name: "{{ $fullname }}-metadata"
+      containers:
+        - name: {{ .Chart.Name }}
+          volumeMounts:
+            {{- range $path, $bytes := .Files.Glob (printf "migrations/**") }}
+              {{- $finalPath := (index (regexSplit "migrations/" ($path) -1) 1) }}
+            - name: hasura-migrations
+              mountPath: {{ printf "/hasura-migrations/%s" $finalPath }}
+              subPath: {{ sha256sum $finalPath }}
+            {{- end }}
+            {{- range $path, $bytes := .Files.Glob (printf "metadata/**") }}
+              {{- $finalPath := (index (regexSplit "metadata/" ($path) -1) 1) }}
+            - name: hasura-metadata
+              mountPath: {{ printf "/hasura-metadata/%s" $finalPath }}
+              subPath: {{ sha256sum $finalPath }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+        {{- if .Values.image }}
+          image: {{ .Values.image }}
+        {{- else }}
+          image: "{{ .Values.imageConfig.repository }}:{{ .Values.imageConfig.tag | default .Chart.AppVersion }}"
+        {{- end }}
+          imagePullPolicy: {{ .Values.imageConfig.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          env:
+            {{- if .Values.extraEnv }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.extraEnv "context" $) | nindent 12 }}
+            {{- end }}
+            - name: HASURA_GRAPHQL_MIGRATIONS_DIR
+              value: /hasura-migrations # default
+            - name: HASURA_GRAPHQL_METADATA_DIR
+              value: /hasura-metadata
+            - name: HASURA_GRAPHQL_ENABLE_CONSOLE
+              value: "{{ .Values.console.enabled }}"
+            - name: HASURA_GRAPHQL_CONSOLE_ASSETS_DIR
+              value: "{{ .Values.console.assetsDir }}"
+            - name: HASURA_GRAPHQL_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-postgresql"
+                  key: databaseUrl
+            - name: HASURA_GRAPHQL_ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ $fullname }}"
+                  key: adminSecret
+            - name: HASURA_GRAPHQL_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ $fullname }}"
+                  key: jwt.secret
+            - name: HASURA_GRAPHQL_UNAUTHORIZED_ROLE
+              value: "{{ .Values.unauthorizedRole }}"
+            - name: HASURA_GRAPHQL_CORS_DOMAIN
+              value: "{{- join "," .Values.cors.domain }}"
+            - name: HASURA_GRAPHQL_DISABLE_CORS
+              value: "{{ .Values.cors.disable }}"
+            - name: HASURA_GRAPHQL_WS_READ_COOKIE
+              value: "{{ .Values.wsReadCookie }}"
+            - name: HASURA_GRAPHQL_ENABLE_TELEMETRY
+              value: "{{ .Values.telemetry.enabled }}"
+            - name: HASURA_GRAPHQL_EVENTS_HTTP_POOL_SIZE
+              value: "{{ .Values.events.poolSize | int }}"
+            - name: HASURA_GRAPHQL_EVENTS_FETCH_INTERVAL
+              value: "{{ .Values.events.fetchInterval | int }}"
+            - name: HASURA_GRAPHQL_PG_STRIPES
+              value: "{{ .Values.pgClient.stripes | int }}"
+            - name: HASURA_GRAPHQL_PG_CONNECTIONS
+              value: "{{ .Values.pgClient.connections | int }}"
+            - name: HASURA_GRAPHQL_PG_TIMEOUT
+              value: "{{ .Values.pgClient.timeout | int }}"
+            - name: HASURA_GRAPHQL_USE_PREPARED_STATEMENTS
+              value: "{{ .Values.pgClient.preparedStatements }}"
+            - name: HASURA_GRAPHQL_TX_ISOLATION
+              value: "{{ .Values.pgClient.transactionIsolation }}"
+            - name: HASURA_GRAPHQL_STRINGIFY_NUMERIC_TYPES
+              value: "{{ .Values.pgClient.stringifyNumericTypes}}"
+            - name: HASURA_GRAPHQL_ENABLED_APIS
+              value: "{{- join "," .Values.enabledApis }}"
+            - name: HASURA_GRAPHQL_ENABLED_LOG_TYPES
+              value: "{{ join "," .Values.log.types }}"
+            - name: HASURA_GRAPHQL_LOG_LEVEL
+              value: "{{ .Values.log.level }}"
+            - name: HASURA_GRAPHQL_DEV_MODE
+              value: "{{ .Values.devMode }}"
+            - name: HASURA_GRAPHQL_ADMIN_INTERNAL_ERRORS
+              value: "{{ .Values.adminInternalErrors }}"
+            - name: HASURA_GRAPHQL_LIVE_QUERIES_MULTIPLEXED_REFETCH_INTERVAL
+              value: "{{ .Values.liveQueries.multiplexedRefetchInterval | int }}"
+            - name: HASURA_GRAPHQL_LIVE_QUERIES_MULTIPLEXED_BATCH_SIZE
+              value: "{{ .Values.liveQueries.multiplexedBatchSize | int }}"
+            - name: HASURA_GRAPHQL_ENABLE_ALLOWLIST
+              value: "{{ .Values.allowList.enabled }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
