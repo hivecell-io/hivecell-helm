@@ -1,0 +1,197 @@
+# Default values for generic-app.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  # NOTE: `name` is designed as a shorthand for `repository:tag` when such granularity is not needed.
+  # If `name` is defined, then `repository` and `tag` will not be read.
+  repository: registry.gitlab.com/bugatti-defi/api
+  tag: 7b6c91a
+#  pullPolicy: Always
+containerPort: 3000
+
+#env:
+#  - name: WHAT_WHAT
+#    value: "chicken butt"
+#  - name: POSTGRES_PW
+#    valueFrom:
+#      secretKeyRef:
+#        name: postgresql
+#        key: postgresql-password
+#  - name: DATABASE_URL
+#    value: postgres://postgres:$(POSTGRES_PW)@postgresql/mydbname
+
+# Use `envFromSecretName` to define all of the Secret's data as container environment variables. The key from the Secret becomes the environment variable name in the Pod. It is used in both
+# deployment and migration job.
+#envFromSecretName:
+
+#podAnnotations:
+#  iam.amazonaws.com/role: arn:aws:iam::{{ requiredEnv "AWS_ACCOUNT_NUMBER" }}:role/{{ requiredEnv "CLUSTER_NAME" }}_api
+#podLabels:
+#  redis-client: "true"
+
+# podSecurityContext:
+#   fsGroup: 2000
+
+# securityContext:
+#   capabilities:
+#     drop:
+#       - ALL
+#   readOnlyRootFilesystem: true
+#   runAsNonRoot: true
+#   runAsUser: 1000
+
+podDisruptionBudget:
+  enabled: false
+#   minAvailable: 1
+#   maxUnavailable: 1
+
+imagePullSecrets:
+  - name: coronet-bot
+
+restartPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  # metricsPort: 8080
+
+#serviceLabels:
+#  nodejs-metrics: "true"
+
+serviceMonitor:
+  enabled: false
+#   label: myapp-metrics
+#   path: /metrics
+#   port: 9199
+#   interval: 30s
+
+#livenessProbe:
+#  httpGet:
+#    path: /status
+#    port: http
+#  initialDelaySeconds: 30
+#  timeoutSeconds: 10
+
+#readinessProbe:
+#  httpGet:
+#    path: /status
+#    port: http
+#  initialDelaySeconds: 30
+#  timeoutSeconds: 10
+#  periodSeconds: 10
+#  successThreshold: 5
+
+# I don't think we can use startupProbe yet, because:
+# "This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+# We currently get this error:
+#Error: Failed to render chart: exit status 1: Error: unable to build kubernetes objects from release manifest: error validating "": error validating data: ValidationError(Deployment.spec.template.spec.containers[0]): unknown field "startupProbe" in io.k8s.api.core.v1.Container
+#  Error: plugin "diff" exited with error
+#startupProbe:
+#  httpGet:
+#    path: /status
+#    port: http
+#  initialDelaySeconds: 30
+#  timeoutSeconds: 10
+#  periodSeconds: 10
+#  successThreshold: 5
+
+ingress:
+  enabled: false
+#  annotations:
+#    kubernetes.io/ingress.class: nginx
+#    kubernetes.io/tls-acme: "true"
+#    nginx.ingress.kubernetes.io/auth-url: "https://$host/oauth2/auth"
+#    nginx.ingress.kubernetes.io/auth-signin: "https://$host/oauth2/start?rd=$escaped_request_uri"
+#  hosts:
+#    - host: somenewapp.coronet.network
+#      paths:
+#        - /
+#  tls:
+#    - secretName: somenewapp.coronet.network
+#      hosts:
+#        - somenewapp.coronet.network
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+#configMaps:
+#  index.js:
+#    mountPath: /index.js
+#    content: |-
+#      console.log("Hello World");
+#  test.js:
+#    mountPath: /tmp/test.js
+#    content: |-
+#      {"test":"thingy"}
+
+# Auto-Scaling
+vpa:
+  enabled: false
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Variables passed to coronet-ingress subchart
+coronet-ingress:
+  ingress:
+    enabled: false
+  #   # Set serviceName to fullNameOverride above
+  #   # Alternatively, set the above service.serviceName to match what you set here, but be careful of conflicts, pick something unique but clear.
+  #   serviceName: ""
+  #   annotations: {}
+  #   hosts:
+  #     - host: chart-coronet-api.local
+  #       paths: []
+
+  #   tls: []
+
+# Command and arguments override for a container
+# See: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/
+# The default behavior is no override; i.e. the CMD instruction
+
+# command: ["npm"]
+# args: ["start"]
+
+# This is a feature used by https://gitlab.com/bugatti-defi/api/api-documentation/ where you can pass an OpenAPI Spec 3.0 JSON object here to have the docs image load it and display it.
+#docs:
+#  enabled: false
+#  api: >-
+#    {"openapi": "3.0.0","servers": [{"description": "coronet API Ropsten Sandbox Server","url": "https://api-sandbox.coronet.tech/v0.0.0/"}],"tags": [{"name": "Fungibles","description": "Fungible tokens powered by the [ERC20 token standard](https://eips.ethereum.org/EIPS/eip-20)."},{"name": "NFTs","description": "Non fungible tokens powered by the [ERC721 token standard](http://erc721.org/)."},{"name": "Transactions","description": "Endpoints for handling the Ethereum Transactions orchestrated via this API."}],"info": {"version": "0.0.0","title": "coronet Digital Asset API","x-logo": {"url": "/coronet_Logo_White.png","backgroundColor": "#2B4BBF","altText": "coronet Asset API"},"description": "# Introducing the API nThe coronet Digital Asset API allows developers to easily issue Digital Assets on Ethereum and integrate them into applications. This API follows the Token Taxonomy Initiative, using two primary types of resources: **Non Fungible Tokens** (NFTs) and **Fungible Tokens**. nn This is an alpha release. For **API keys**, please contact us at coronet-api@bugatti.net"},"x-tagGroups": [{"name": "Token Endpoints","tags": ["NFTs","Fungibles"]},{"name": "Transaction Endpoints","tags": ["Transactions"]}],"paths": {"/token/nft": {"post": {"summary": "Create an NFT","description": "This operation mints a new token into the ERC721 Token Contract belonging to the issuer. ","tags": ["NFTs","create"],"requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateNFT"}}}},"responses": {"202": {"description": "Accepted. Transaction is prepared and awaiting mining. Check the status of the transaction at the URL indicated by `url`.","content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateNFTResponse"}}}},"401": {"$ref": "#/components/responses/Unauthorized"},"5XX": {"$ref": "#/components/responses/UnexpectedError"}},"security": [{"accessCode": ["write"]}]}},"/tx/{_orchestrateID}": {"get": {"summary": "Get a transaction by its _orchestrateID","description": "This endpoint returns the status of a transaction after it has been issued but before it has been broadcast or mined. Once the transaction has been mined, it is possible to refer to tokens by their permanent, on-chain addresses and token IDs.","tags": ["Transactions"],"operationId": "getTx","parameters": [{"in": "path","name": "_orchestrateID","required": true,"description": "The `_orchestrateID` from a transaction response.","schema": {"$ref": "#/components/schemas/OrchestrateID"}}],"responses": {"200": {"description": "A Transaction object","content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrchestrateTransaction"}}}},"404": {"$ref": "#/components/responses/NotFound"}},"security": [{"accessCode": ["read"]}]}},"/transaction/{hash}": {"get": {"summary": "Get a transaction by its hash","description": "Get a transaction by its transaction hash after it has been broadcasted to the network and is either in the transaction pool awaiting mining, or mined and included in a block. ","tags": ["Transactions"],"operationId": "getTxByHash","parameters": [{"in": "path","name": "hash","required": true,"schema": {"type": "string"}}],"responses": {"200": {"description": "A Transaction object","content": {"application/json": {"schema": {"$ref": "#/components/schemas/Transaction"}}}},"404": {"$ref": "#/components/responses/NotFound"}},"security": [{"accessCode": ["read"]}]}},"/healthcheck": {"get": {"summary": "Server heartbeat operation","description": "This operation asserts that the application is behaving correctly. ","responses": {"200": {"description": "OK"}},"security": [{"accessCode": ["read"]}]}}},"components": {"schemas": {"CreateNFT": {"type": "object","description": "Request Body to create an NFT","properties": {}},"CreateNFTResponse": {"type": "object","properties": {"url": {"$ref": "#/components/schemas/URL"},"_orchestrateID": {"$ref": "#/components/schemas/OrchestrateID"}},"required": ["_orchestrateID","url"]},"NFT": {"type": "object","properties": {"address": {"$ref": "#/components/schemas/Address"},"tokenId": {"type": "string","example": "1"},"owner": {"$ref": "#/components/schemas/Address"}},"required": ["address","tokenId"]},"TransferNFT": {"type": "object","properties": {"to": {"$ref": "#/components/schemas/Address"}},"required": ["to"]},"CreateToken": {"type": "object","properties": {"amount": {"type": "integer","format": "int32","example": 100000},"decimal_places": {"type": "integer","minimum": 0,"maximum": 18,"default": 0,"example": 3},"name": {"type": "string","example": "coronetCoin","default": ""},"symbol": {"type": "string","example": "CDFI","default": ""}},"required": ["amount"]},"CreateTokenResponse": {"type": "object","description": "The Response body for creating a new fungible token","properties": {"url": {"$ref": "#/components/schemas/URL"},"_orchestrateID": {"$ref": "#/components/schemas/OrchestrateID"}},"required": ["_orchestrateID","url"]},"Token": {"type": "object","properties": {"amount": {"type": "integer","format": "int64","example": 100000},"decimal_places": {"type": "integer","format": "int32","example": 3},"address": {"$ref": "#/components/schemas/Address"},"owner": {"$ref": "#/components/schemas/Address"}},"required": ["amount","decimal_places","address"]},"TransferTokens": {"type": "object","properties": {"to": {"$ref": "#/components/schemas/Address"},"amount": {"type": "number","default": 0,"example": 223.45}},"required": ["amount","to"]},"TransferResponse": {"type": "object","description": "The response body from a token transfer call.","properties": {"url": {"$ref": "#/components/schemas/URL"},"_orchestrateID": {"$ref": "#/components/schemas/OrchestrateID"}},"required": ["_orchestrateID","url"]},"Transaction": {"type": "object","properties": {"hash": {"$ref": "#/components/schemas/TransactionHash"},"to": {"$ref": "#/components/schemas/Address"},"from": {"$ref": "#/components/schemas/Address"},"value": {"type": "string"},"gas": {"type": "string"},"gasPrice": {"type": "string"},"chainId": {"type": "string"}},"required": ["hash","to","from"]},"OrchestrateTransaction": {"type": "object","properties": {"_orchestrateID": {"$ref": "#/components/schemas/OrchestrateID"},"hash": {"$ref": "#/components/schemas/TransactionHash"},"from": {"$ref": "#/components/schemas/Address"},"value": {"type": "string"},"gas": {"type": "string"},"gasPrice": {"type": "string"},"chainId": {"type": "string"}},"required": ["_orchestrateID"]},"Error": {"type": "object","properties": {"code": {"type": "string"},"message": {"type": "string"}},"required": ["code","message"]},"Address": {"type": "string","format": "address","description": "An Ethereum Address. ","example": "0xa12346d43efFc151E7e89519b524CA5a7E5626f"},"TransactionHash": {"type": "string","format": "transactionHash","description": "An on chain transaction hash. ","example": "0x658703fc5eb1fed557cefa4a919d8327544f71feeba0c0e4e61375065d424664"},"OrchestrateID": {"type": "string","format": "uuid","example": "0029674e-ab4e-4579-b809-14e2b7e390df","description": "A transaction ID from Pegasys Orchestrate"},"TokenID": {"type": "string","format": "tokenId","description": "The identifier for an NFT","example": "2435920992677867"},"URL": {"type": "string","format": "url","description": "A URL to get an update about an initiated transaction.","example": "https://api-sandbox.coronet.tech/v0.0/tx/0029674e-ab4e-4579-b809-14e2b7e390df"}},"responses": {"NotFound": {"description": "The specified resource was not found","content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},"NotImplemented": {"description": "The specified operation has not been implemented","content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},"Unauthorized": {"description": "Unauthorized","content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},"UnexpectedError": {"description": "Unexpected Error","content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},"securitySchemes": {"accessCode": {"type": "oauth2","description": "This API uses OAuth 2 with the Client Credentials flow (defined in OAuth 2.0 RFC 6749, section 4.4).nTo use this API, you will be supplied with an API Key and Secret by a member of the coronet team. Keys and Secrets can be exchanged for Bearer Tokens that identify your requests and authenticate you with the API. **Always keep your API Secret secure.** nThe API Keys for the Digital Asset API can have one or more of the following scopes *(permissions)*. nFor this release, we are supporting just the *client_credentials* flow for OAuth, meaning this API is suitable for back end applications to issue and transfer tokens on behalf of all of your users. nnOn our roadmap is to support the full OpenID Connect authentication flow, which will enable secure access to our APIs for client-side and mobile application use cases. This will also enable our API to provide more complex Identity and Permissioning use cases for you out of the box. Please get in touch with us early if you have a use case like this that you might need our support with.","flows": {"authorizationCode": {"authorizationUrl": "https://coronet.eu.auth0.com/oauth/auth","tokenUrl": "https://coronet.eu.auth0.com/oauth/token","scopes": {"write": "Can create or update resources","read": "Can read resources","transfer": "Can transfer tokens and contracts to other ethereum addresses"}}}}}}}
+
+migrations:
+  backoffLimit: 6
+  enabled: false
+  workDir: "/usr/src/app"
+  commands:
+    - "npm run db:migrate:create"
+    - "npm run db:migrate:up"
+
+initContainers:
+  enabled: false
+  name: init-db
+  env:

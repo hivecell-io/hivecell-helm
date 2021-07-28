@@ -1,0 +1,68 @@
+{{- if .Values.migrations.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "generic-app.job.fullname" . }}
+  labels:
+      app.kubernetes.io/name: {{ include "generic-app.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  template:
+    metadata:
+      annotations:
+        {{- range $key, $value := .Values.podAnnotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+      labels:
+        app: {{ template "generic-app.job.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}-migrations
+          {{- if .Values.image.name }}
+          image: {{ .Values.image.name }}
+          {{- else }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+          - /bin/sh
+          - migrations.sh
+          env:
+            {{- if .Values.env }}
+            {{- toYaml .Values.env | nindent 12 }}
+            {{- end }}
+          {{- if .Values.envFromSecretName }}
+          envFrom:
+          - secretRef:
+              name: {{ .Values.envFromSecretName }}
+          {{- end }}
+          volumeMounts:
+          - name: data
+            mountPath: {{ .Values.migrations.workDir }}/migrations.sh
+            subPath: migrations.sh
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+        - name: data
+          configMap:
+            name: {{ template "generic-app.fullname" . }}-migrations
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,151 @@
+{{- $fullname := include "generic-app.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "generic-app.fullname" . }}
+  labels:
+{{ include "generic-app.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "generic-app.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        {{-  range $key, $value := .Values.podAnnotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ include "generic-app.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{-  range $key, $value := .Values.podLabels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      restartPolicy: {{ .Values.restartPolicy }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: "{{ .Values.initContainers.name }}"
+        image: "{{ .Values.image.repository }}:init-{{ .Values.image.imageTag }}"
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            {{- if .Values.env }}
+            {{- toYaml .Values.env | nindent 12 }}
+            {{- end }}
+            {{- if .Values.secrets }}
+            {{- range $key, $value := .Values.secrets }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $fullname }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- end }}
+          {{- if .Values.envFromSecretName }}
+          envFrom:
+          - secretRef:
+              name: {{ .Values.envFromSecretName }}
+          {{- end }}
+          {{- if .Values.image.name }}
+          image: {{ .Values.image.name }}
+          {{- else }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+            {{- if .Values.service.metricsPort }}
+            - name: metrics
+              containerPort: {{ .Values.service.metricsPort }}
+              protocol: TCP
+            {{- end }}
+          {{- if .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          {{- if or (.Values.docs.enabled) (.Values.configMaps)}}
+          volumeMounts:
+            {{- if .Values.configMaps }}
+              {{-  range $key, $value := .Values.configMaps }}
+            - name: config-dir
+              mountPath: {{ .mountPath }}
+              subPath: {{ $key }}
+              {{- end }}
+            {{- end }}
+            {{- if .Values.docs.enabled }}
+            - name: {{ include "generic-app.fullname" . }}-api-spec-volume
+              mountPath: /usr/share/nginx/html/resources/
+            {{- end }}
+          {{- end }}
+
+          {{- if .Values.command }}
+          command:
+            {{- toYaml .Values.command | nindent 12 }}
+          {{- end }}
+
+          {{- if .Values.args }}
+          args:
+            {{- toYaml .Values.args | nindent 12 }}
+          {{- end }}
+
+      {{- if or (.Values.docs.enabled)  (.Values.configMaps)}}
+      volumes:
+        {{- if .Values.configMaps }}
+        - name: config-dir
+          configMap:
+            name: {{ include "generic-app.fullname" . }}
+        {{- end }}
+        {{- if .Values.docs.enabled }}
+        - name: {{ include "generic-app.fullname" . }}-api-spec-volume
+          configMap:
+            name: {{ include "generic-app.fullname" . }}-api-spec
+        {{- end }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        {{- with .Values.affinity }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/instance
+                      operator: In
+                      values:
+                        - {{ .Release.Name }}
+                topologyKey: failure-domain.beta.kubernetes.io/zone
+              weight: 100
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

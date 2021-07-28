@@ -1,0 +1,16 @@
+{{- if .Values.migrations.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "generic-app.fullname" . }}-migrations
+  labels:
+    app.kubernetes.io/name: {{ include "generic-app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  migrations.sh: |-
+        set -e
+        set -v
+        {{- range .Values.migrations.commands }}
+        {{ . }}
+        {{- end }}
+{{- end }}

@@ -1,0 +1,28 @@
+{{- if .Values.configMaps }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "generic-app.fullname" . }}
+  labels:
+{{ include "generic-app.labels" . | indent 4 }}
+data:
+{{- range $key, $value := .Values.configMaps }}
+  {{ $key }}: |-
+{{ .content | indent 4 }}
+{{- end }}
+{{- end }}
+{{ if .Values.docs.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "generic-app.fullname" . }}-api-spec
+  labels:
+    app: {{ include "generic-app.name" . }}
+    chart: {{ include "generic-app.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  api: {{  .Values.docs.api | toYaml | indent 4 }}
+{{- end }}
